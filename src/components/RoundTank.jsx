@@ -1,111 +1,123 @@
-export default function RoundTank({ level = 0, label = "Tank" }) {
-  const height = 360;
-  const radius = 70;
-  const x = 150;
-  const topY = 60;
-  const bottomY = topY + height;
-
-  const waterHeight = (height * level) / 100;
-  const waterTopY = bottomY - waterHeight;
+export default function RoundTank({
+  levelCm = 0,
+  maxHeightCm = 250,
+  label = "Main Tank",
+}) {
+ 
+  const safeLevel = Math.max(0, Math.min(levelCm, maxHeightCm));
+  const TANK_HEIGHT_PX = 432;
+  const waterHeightPx = (safeLevel / maxHeightCm) * TANK_HEIGHT_PX;
+  const percent = (safeLevel / maxHeightCm) * 100;
+  const fillHeightPx = Math.min(waterHeightPx-15 );
 
   return (
-    <svg width="300" height="440" className="drop-shadow-xl">
-      <rect
-        x={x - radius}
-        y={topY}
-        width={radius * 2}
-        height={height}
-        fill="url(#tankGradient)"
-        stroke="#334155"
-        strokeWidth="3"
-      />
+    <div className="flex flex-col items-center w-95">
 
-      <ellipse
-        cx={x}
-        cy={topY}
-        rx={radius}
-        ry="18"
-        fill="#cbd5e1"
-        stroke="#334155"
-        strokeWidth="3"
-      />
-
-      <ellipse
-        cx={x}
-        cy={bottomY}
-        rx={radius}
-        ry="18"
-        fill="#94a3b8"
-        stroke="#334155"
-        strokeWidth="3"
-      />
-
-      {level > 0 && (
-        <>
-          <defs>
-            <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#1d4ed8" stopOpacity="0.95" />
-            </linearGradient>
-          </defs>
-
-          <rect
-            x={x - radius + 3}
-            y={waterTopY}
-            width={radius * 2 - 6}
-            height={waterHeight}
-            fill="url(#waterGradient)"
-          />
-
-          <ellipse
-            cx={x}
-            cy={waterTopY}
-            rx={radius - 3}
-            ry="14"
-            fill="#3b82f6"
-            opacity="0.95"
-          />
-
-          <ellipse
-            cx={x}
-            cy={bottomY}
-            rx={radius - 3}
-            ry="14"
-            fill="#1d4ed8"
-            opacity="0.9"
-          />
-        </>
-      )}
-
-      <defs>
-        <linearGradient id="tankGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#e2e8f0" />
-          <stop offset="50%" stopColor="#f1f5f9" />
-          <stop offset="100%" stopColor="#e2e8f0" />
-        </linearGradient>
-      </defs>
-
-      <text
-        x={x}
-        y={waterTopY - 20}
-        textAnchor="middle"
-        fontSize="32"
-        fontWeight="bold"
-        fill="#1e40af"
-      >
-        {Math.round(level)}%
-      </text>
-
-      <text
-        x={x}
-        y={bottomY + 50}
-        textAnchor="middle"
-        fontSize="18"
-        fontWeight="600"
-        fill="#1e293b"
-      >
+      {/* ===== HEADER ===== */}
+      <div className="mb-3 text-xl font-semibold text-slate-800">
         {label}
-      </text>
-    </svg>
+      </div>
+
+      {/* ===== READOUT ===== */}
+      <div className="mb-5 flex items-center gap-4">
+        <div className="text-3xl font-bold text-slate-900">
+          {safeLevel} cm
+        </div>
+        <div className="text-2xl font-semibold text-green-600">
+          {Math.round(percent)}%
+        </div>
+      </div>
+
+      <div className="relative flex">
+
+        {/* ===== BOTTLE NECK ===== */}
+        <div className="absolute -top-4 left-22.75 -translate-x-1/2 w-26 h-4 bg-slate-700 rounded-t-full" />
+
+        {/* ===== TANK BODY ===== */}
+        <div
+          className="
+            relative w-44 h-108
+            border-4 border-slate-700
+            rounded-t-[48px]
+            rounded-b-xl
+            bg-slate-200
+            overflow-hidden
+          "
+        >
+          {/* ===== WATER CONTAINER (REAL HEIGHT) ===== */}
+          <div
+            className="
+              absolute bottom-0 left-0 w-full 
+              
+              transition-[height]
+              duration-700
+              ease-in-out
+              overflow-hidden
+            "
+            style={{ height: `${fillHeightPx}px` }}
+          >
+            {/* WATER BODY */}
+            <div className="absolute inset-0 bg-linear-to-b from-blue-400 via-blue-600 to-blue-900" />
+
+            {/* ===== WAVES (CLAMPED TO WATER ONLY) ===== */}
+            <div className="absolute top-0 left-0 rounded-4xl w-[300%] h-3">
+              <div className="wave wave-back" />
+              <div className="wave wave-front" />
+            </div>
+          </div>
+
+          {/* INNER STEEL SHINE */}
+          <div className="absolute inset-y-0 left-3 w-4 bg-white opacity-10 blur-md" />
+          <div className="absolute inset-y-0 right-3 w-4 bg-black opacity-10 blur-md" />
+        </div>
+
+        {/* ===== SCALE ===== */}
+        <div className="ml-6 flex flex-col justify-between mb-4 h-110 text-xs text-slate-600">
+          {[...Array(11)].map((_, i) => {
+            const cm = (10 - i) * 25;
+            return (
+              <div key={cm} className="flex items-center gap-1">
+                <span className="w-4 h-1 bg-slate-500" />
+                <span>{cm} cm</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ===== CSS WAVES ===== */}
+      <style>
+        {`
+          .wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 100%;
+          }
+
+          .wave-back {
+            background: rgba(147,197,253,0.4);
+            animation: waveMove 7s linear infinite,
+                       waveBob 2s ease-in-out infinite;
+          }
+
+          .wave-front {
+            background: rgba(59,130,246,0.8);
+            animation: waveMove 5s linear infinite,
+                       waveBob 2s ease-in-out infinite;
+          }
+
+          @keyframes waveMove {
+            from { transform: translateX(0); }
+            to   { transform: translateX(50%); }
+          }
+
+          @keyframes waveBob {
+            0%,100% { transform: translateY(0); }
+            50%     { transform: translateY(4px); }
+          }
+        `}
+      </style>
+    </div>
   );
 }

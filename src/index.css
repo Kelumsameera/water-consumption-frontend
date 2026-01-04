@@ -7,6 +7,19 @@
   --color-gold: #e29816;
   --color-header-bg: #004a98;
 }
+@keyframes wave {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(50%); }
+}
+transition-[height] duration-700 ease-in-out
+
+.animate-wave {
+  animation: wave 4s linear infinite;
+}
+.wave-animation {
+  animation: waveMove 4s linear infinite;
+}
+
 
 /* Customize the entire scrollbar */
 ::-webkit-scrollbar {

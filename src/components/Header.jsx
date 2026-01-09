@@ -41,34 +41,23 @@ export default function Header() {
   return (
     <>
       {/* ================= HEADER ================= */}
-      <header className="w-full px-6 py-4 bg-header-bg shadow-md flex items-center justify-between z-40 relative">
+      <header className="w-full px-6 sticky-top  py-4 bg-header-bg shadow-md flex items-center justify-between z-40">
 
-        {/* LEFT: LOGO + TITLE */}
+        {/* LEFT: LOGO + DESKTOP MENU BUTTON */}
         <div className="flex items-center gap-3 text-white font-bold">
+          <button
+            className="hidden lg:flex text-3xl mr-2"
+            onClick={() => setOpen(true)}
+            aria-label="Open sidebar"
+          >
+            ☰
+          </button>
+
           <img src="/logo.svg" alt="logo" className="w-8 h-8" />
           <h1 className="text-sm sm:text-lg lg:text-2xl">
             Real-time Monitoring System
           </h1>
         </div>
-
-        {/* ================= DESKTOP NAV ================= */}
-        <nav className="hidden lg:flex items-center gap-6">
-          {links.slice(0, 4).map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex items-center gap-2 font-semibold transition
-                ${
-                  isActive(item.to)
-                    ? "text-cyan-300"
-                    : "text-white hover:text-cyan-200"
-                }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
 
         {/* RIGHT ICONS (DESKTOP) */}
         <div className="hidden lg:flex items-center gap-6 text-white">
@@ -99,11 +88,12 @@ export default function Header() {
         />
       )}
 
-      {/* ================= SIDEBAR (MOBILE) ================= */}
+      {/* ================= SIDEBAR (MOBILE + DESKTOP) ================= */}
       <aside
         className={`fixed top-0 left-0 h-full w-72 bg-header-bg z-50
         transform transition-transform duration-300
-        ${open ? "translate-x-0" : "-translate-x-full"}`}
+        ${open ? "translate-x-0" : "-translate-x-full"}
+        lg:shadow-2xl`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -131,12 +121,12 @@ export default function Header() {
               to={item.to}
               onClick={() => setOpen(false)}
               className={`flex items-center gap-4 px-4 py-3 rounded-md font-semibold
-                transition hover:bg-blue-700
-                ${
-                  isActive(item.to)
-                    ? "bg-white text-blue-700"
-                    : "text-white"
-                }`}
+              transition hover:bg-blue-700
+              ${
+                isActive(item.to)
+                  ? "bg-white text-black hover:bg-white hover:text-blue-700"
+                  : "text-white"
+              }`}
             >
               <span className="text-lg">{item.icon}</span>
               {item.label}

@@ -72,12 +72,13 @@ export default function RoundTank({
         </div>
 
         {/* ===== SCALE ===== */}
-        <div className="ml-6 flex flex-col justify-between mb-4 h-110 text-xs text-slate-600">
+        <div className="ml-6 flex flex-col gap-6.25 mt-3 h-110 text-xs text-slate-600">
           {[...Array(11)].map((_, i) => {
-            const cm = (10 - i) * 25;
+            const cm = maxHeightCm - i * 25;
+
             return (
-              <div key={cm} className="flex items-center gap-1">
-                <span className="w-4 h-1 bg-slate-500" />
+              <div key={i-1} className="flex items-center gap-1">
+                <span className="w-4 h-0.5 bg-slate-500" />
                 <span>{cm} cm</span>
               </div>
             );

@@ -1,17 +1,22 @@
 import React, { useRef, useEffect } from "react";
 
+// 5-0 red 5-10 orange 10-20 yellow 10-20 green 20-35 orange 35-50 red
+
 export default function PressureGauge({
   value = 0,
   min = 0,
   max = 50,
   unit = "Pa",
-  size = 320,
+  size = 345,
   showDigital = true,
 
   zones = [
-    { start: 0, end: 15, color: "#2ecc71" },
-    { start: 15, end: 35, color: "#f1c40f" },
-    { start: 35, end: 50, color: "#e74c3c" },
+    { start: 0, end: 5, color: "#d92647" },
+    { start: 5, end: 10, color: "#e08048" },
+    { start: 10, end: 15, color: "#d6d926" },
+    { start: 15, end: 25, color: "#38c749" },
+    { start: 25, end: 35, color: "#e08048" },
+    { start: 35, end: 50, color: "#d92647" },
   ],
 }) {
   /* ---------- SAFE VALUE ---------- */

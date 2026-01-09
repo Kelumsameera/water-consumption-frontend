@@ -3,19 +3,37 @@ import { io } from "socket.io-client";
 import PressureGauge from "../components/PressureGauge";
 
 export default function PressurGuageHomePage() {
-  const [values, setValues] = useState({
+   const [values, setValues] = useState({
     production_clean_room: 0,
     assembly_clean_room: 0,
   });
 
   useEffect(() => {
-    const socket = io("http://10.10.1.200:5000");
+    // ✅ connect to Socket.IO server (NOT REST endpoint)
+    const socket = io("http://localhost:3000", {
+      transports: ["websocket"],
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket.id);
+    });
 
     socket.on("modbus_update", (data) => {
+      /*
+        data = {
+          device: "production_clean_room",
+          value: 23.6,
+          timestamp: "2026-01-09 12:10:00"
+        }
+      */
       setValues((prev) => ({
         ...prev,
         [data.device]: data.value,
       }));
+    });
+
+    socket.on("disconnect", () => {
+      console.log(" Socket disconnected");
     });
 
     return () => socket.disconnect();
@@ -42,7 +60,7 @@ export default function PressurGuageHomePage() {
             <PressureGauge value={values.production_clean_room} />
           </div>
 
-          <div className="mt-6 text-center text-xl font-semibold">
+          <div className="mt-6 text-center border-b-gray-800 backdrop-blur-3xl border-b rounded-2xl shadow-3xl p-0.5 text-shadow-slate-800 text-xl font-semibold">
             Production Clean Room
           </div>
         </div>
@@ -59,7 +77,7 @@ export default function PressurGuageHomePage() {
             <PressureGauge value={values.assembly_clean_room} />
           </div>
 
-          <div className="mt-6 text-center text-xl font-semibold">
+          <div className="mt-6 text-center border-b-gray-800 backdrop-blur-3xl border-b rounded-2xl shadow-3xl p-0.5 text-shadow-slate-800 text-xl font-semibold">
             Assembly Clean Room
           </div>
         </div>

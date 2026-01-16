@@ -8,6 +8,9 @@ import {
   Routes,
 } from "react-router-dom";
 import WaterDashboard from "./pages/waterDashboardPage";
+import PressureDatabase from "./pages/PressureDatabase";
+import PressureChart from "./pages/PressureChart";
+import HistoryChart from "./pages/HistoryChart";
 
 export default function App() {
   return (
@@ -18,6 +21,9 @@ export default function App() {
         <Route path="/" element={<ProfessionalDashboard />} />
         <Route path="/water" element={<WaterDashboard />} />
         <Route path="/pressur" element={<PressurGuageHomePage />} />
+        <Route path="/database" element={<PressureDatabase />} />
+        <Route path="/chart" element={<PressureChart />} />
+        <Route path="/history" element={<HistoryChart />} />
       </Routes>
     </div>
   );

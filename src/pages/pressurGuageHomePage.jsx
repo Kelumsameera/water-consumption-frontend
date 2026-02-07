@@ -3,53 +3,55 @@ import { io } from "socket.io-client";
 import PressureGauge from "../components/PressureGauge";
 
 export default function PressurGuageHomePage() {
-   const [values, setValues] = useState({
+  const [values, setValues] = useState({
     production_clean_room: 0,
     assembly_clean_room: 0,
   });
 
   useEffect(() => {
-    // ✅ connect to Socket.IO server (NOT REST endpoint)
-    const socket = io("http://localhost:3000", {
+    const socket = io("http://10.10.1.200:3000", {
       transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
     socket.on("connect", () => {
       console.log("✅ Socket connected:", socket.id);
     });
 
+    socket.on("connect_error", (err) => {
+      console.log("❌ Socket error:", err.message);
+    });
+
     socket.on("modbus_update", (data) => {
-      /*
-        data = {
-          device: "production_clean_room",
-          value: 23.6,
-          timestamp: "2026-01-09 12:10:00"
-        }
-      */
+      console.log("📡 Modbus update:", data);
+
       setValues((prev) => ({
         ...prev,
-        [data.device]: data.value,
+        [data.device]: Number(data.value),
       }));
     });
 
     socket.on("disconnect", () => {
-      console.log(" Socket disconnected");
+      console.log("⚠️ Socket disconnected");
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 px-6 py-10">
-      <h1 className="hidden lg:block justify-center text-center text-gray-700 text-2xl font-bold mb-8">
+      <h1 className="text-center text-gray-700 text-2xl font-bold mb-8">
         Pressure Monitoring Dashboard
       </h1>
-      <h1 className="lg:hidden flex justify-center text-gray-700 text-2xl font-bold mb-2">Pressure Monitoring Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-16 place-items-center">
+      <div className="flex flex-col lg:flex-row gap-16 justify-center place-items-center">
 
-        {/* ---------- PRODUCTION ---------- */}
-        <div className="w-full max-w-md bg-gray-300 rounded-3xl 00 p-6 shadow-2xl">
+        {/* PRODUCTION */}
+        <div className="w-md lg:w-full max-w-md bg-gray-300 rounded-3xl p-6 shadow-2xl">
           <div
             className="bg-white rounded-full p-6 flex justify-center"
             style={{
@@ -60,13 +62,13 @@ export default function PressurGuageHomePage() {
             <PressureGauge value={values.production_clean_room} />
           </div>
 
-          <div className="mt-6 text-center border-b-gray-800 backdrop-blur-3xl border-b rounded-2xl shadow-3xl p-0.5 text-shadow-slate-800 text-xl font-semibold">
+          <div className="mt-6 text-center text-xl font-semibold">
             Production Clean Room
           </div>
         </div>
 
-        {/* ---------- ASSEMBLY ---------- */}
-        <div className="w-full max-w-md bg-gray-300 rounded-3xl p-6 shadow-2xl">
+        {/* ASSEMBLY */}
+        <div className="w-md lg:w-full max-w-md bg-gray-300 rounded-3xl p-6 shadow-2xl">
           <div
             className="bg-white rounded-full p-6 flex justify-center"
             style={{
@@ -77,7 +79,7 @@ export default function PressurGuageHomePage() {
             <PressureGauge value={values.assembly_clean_room} />
           </div>
 
-          <div className="mt-6 text-center border-b-gray-800 backdrop-blur-3xl border-b rounded-2xl shadow-3xl p-0.5 text-shadow-slate-800 text-xl font-semibold">
+          <div className="mt-6 text-center text-xl font-semibold">
             Assembly Clean Room
           </div>
         </div>

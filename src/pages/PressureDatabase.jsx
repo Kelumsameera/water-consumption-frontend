@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
-
-const ROWS_PER_PAGE = 10;
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function PressureDatabase() {
+
   const [filters, setFilters] = useState({
     start_date: "",
     start_time: "",
@@ -12,245 +15,265 @@ export default function PressureDatabase() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [deviceFilter, setDeviceFilter] = useState("ALL");
 
-  const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: "asc",
   });
 
-  /* ---------------- FILTER HANDLING ---------------- */
+  /* ---------------- INPUT HANDLER ---------------- */
 
   const handleChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
-    setError(null);
-  };
-
-  const validateRange = () => {
-    const start = new Date(`${filters.start_date}T${filters.start_time}`);
-    const end = new Date(`${filters.end_date}T${filters.end_time}`);
-
-    if (end <= start) {
-      setError("End date/time must be after start date/time");
-      return false;
-    }
-
-    if (start > new Date()) {
-      setError("Start date/time cannot be in the future");
-      return false;
-    }
-
-    return true;
   };
 
   /* ---------------- FETCH DATA ---------------- */
 
   const fetchData = async () => {
-    if (!validateRange()) return;
+    if (
+      !filters.start_date ||
+      !filters.start_time ||
+      !filters.end_date ||
+      !filters.end_time
+    ) return;
 
     setLoading(true);
-    setError(null);
 
     try {
       const start = `${filters.start_date} ${filters.start_time}:00`;
       const end = `${filters.end_date} ${filters.end_time}:00`;
 
       const res = await fetch(
-        `http://localhost:3000/modbus/database/filter?start=${start}&end=${end}`
+        `/api/modbus/database/filter?start=${start}&end=${end}`
       );
-
-      if (!res.ok) throw new Error("Failed to load data");
 
       const data = await res.json();
 
-      // Backend → table format
-      const formatted = data.map((r, index) => ({
-        id: index + 1,
-        device: r.device,
+      const formatted = data.map((r, i) => ({
+        id: i + 1,
+        device: r.device || "-",
         value: Number(r.value).toFixed(2),
         time: r.time,
       }));
 
       setRows(formatted);
-      setCurrentPage(1);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+
+    // eslint-disable-next-line no-unused-vars
+    } catch (error) {
+      setRows([]);
     }
+
+    setLoading(false);
   };
 
-  /* ---------------- SORTING ---------------- */
+  /* ---------------- DEVICE LIST ---------------- */
+
+  const devices = useMemo(() => {
+    const d = [...new Set(rows.map(r => r.device))];
+    return ["ALL", ...d];
+  }, [rows]);
+
+  /* ---------------- FILTERED ROWS ---------------- */
+
+  const filteredRows = useMemo(() => {
+    if (deviceFilter === "ALL") return rows;
+    return rows.filter(r => r.device === deviceFilter);
+  }, [rows, deviceFilter]);
+
+  /* ---------------- SORT ---------------- */
 
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
+    setSortConfig(prev => ({
       key,
       direction:
-        prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+        prev.key === key && prev.direction === "asc"
+          ? "desc"
+          : "asc",
     }));
   };
 
   const sortedRows = useMemo(() => {
-    if (!sortConfig.key) return rows;
+    if (!sortConfig.key) return filteredRows;
 
-    return [...rows].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
-
+    return [...filteredRows].sort((a, b) => {
       if (sortConfig.direction === "asc") {
-        return aVal > bVal ? 1 : -1;
+        return a[sortConfig.key] > b[sortConfig.key] ? 1 : -1;
+      } else {
+        return a[sortConfig.key] < b[sortConfig.key] ? 1 : -1;
       }
-      return aVal < bVal ? 1 : -1;
     });
-  }, [rows, sortConfig]);
+  }, [filteredRows, sortConfig]);
 
-  /* ---------------- PAGINATION ---------------- */
+  /* ---------------- EXPORT EXCEL ---------------- */
 
-  const totalPages = Math.ceil(sortedRows.length / ROWS_PER_PAGE);
+  const exportExcel = async () => {
 
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * ROWS_PER_PAGE;
-    return sortedRows.slice(start, start + ROWS_PER_PAGE);
-  }, [sortedRows, currentPage]);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Pressure Data");
 
-  /* ---------------- CSV EXPORT ---------------- */
+    ws.columns = [
+      { header: "ID", key: "id", width: 10 },
+      { header: "Device", key: "device", width: 25 },
+      { header: "Value", key: "value", width: 15 },
+      { header: "Timestamp", key: "time", width: 25 },
+    ];
 
-  const exportCSV = () => {
-    let csv = "ID,Device,Value,Timestamp\n";
-    rows.forEach((r) => {
-      csv += `${r.id},${r.device},${r.value},${r.time}\n`;
+    sortedRows.forEach(r => ws.addRow(r));
+
+    ws.getRow(1).font = { bold: true };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), "pressure_data.xlsx");
+  };
+
+  /* ---------------- EXPORT PDF ---------------- */
+
+  const exportPDF = () => {
+
+    const doc = new jsPDF();
+
+    autoTable(doc, {
+      head: [["ID","Device","Value","Timestamp"]],
+      body: sortedRows.map(r => [
+        r.id,
+        r.device,
+        r.value,
+        r.time,
+      ]),
     });
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "pressure_database.csv";
-    link.click();
+    doc.save("pressure_data.pdf");
   };
 
   /* ---------------- UI ---------------- */
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-        🗄 Pressure Gauge Database
+
+      <h2 className="text-2xl font-bold text-center mb-6">
+        🗄 Pressure Database
       </h2>
 
-      {/* FILTER */}
+      {/* FILTER PANEL */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { name: "start_date", type: "date", label: "Start Date" },
-            { name: "start_time", type: "time", label: "Start Time" },
-            { name: "end_date", type: "date", label: "End Date" },
-            { name: "end_time", type: "time", label: "End Time" },
-          ].map((f) => (
-            <div key={f.name}>
-              <label className="text-sm font-semibold text-gray-600">
-                {f.label}
-              </label>
-              <input
-                type={f.type}
-                name={f.name}
-                value={filters[f.name]}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2 mt-1 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          ))}
-        </div>
 
-        {error && <p className="text-red-600 mt-3">{error}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+          <input
+            type="date"
+            name="start_date"
+            value={filters.start_date}
+            onChange={handleChange}
+            className="border px-3 py-2 rounded"
+          />
+
+          <input
+            type="time"
+            name="start_time"
+            value={filters.start_time}
+            onChange={handleChange}
+            className="border px-3 py-2 rounded"
+          />
+
+          <input
+            type="date"
+            name="end_date"
+            value={filters.end_date}
+            onChange={handleChange}
+            className="border px-3 py-2 rounded"
+          />
+
+          <input
+            type="time"
+            name="end_time"
+            value={filters.end_time}
+            onChange={handleChange}
+            className="border px-3 py-2 rounded"
+          />
+
+        </div>
 
         <button
           onClick={fetchData}
-          disabled={loading}
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold disabled:opacity-60"
+          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
         >
           {loading ? "Loading..." : "Search"}
         </button>
+
       </div>
 
-      {/* TABLE */}
+      {/* DEVICE FILTER + EXPORT */}
       {rows.length > 0 && (
-        <>
-          <div className="flex justify-between items-center mb-3">
-            <p className="font-semibold text-gray-700">
-              Records: {rows.length}
-            </p>
-            <button
-              onClick={exportCSV}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-            >
-              Export CSV
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-3 mb-3">
 
-          <div className="overflow-x-auto bg-white shadow rounded-lg">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-800 text-white">
+          <select
+            value={deviceFilter}
+            onChange={(e)=>setDeviceFilter(e.target.value)}
+            className="border px-3 py-2 rounded"
+          >
+            {devices.map(d=>(
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+
+          <button
+            onClick={exportExcel}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            📗 Excel
+          </button>
+
+          <button
+            onClick={exportPDF}
+            className="bg-red-600 text-white px-4 py-2 rounded"
+          >
+            📕 PDF
+          </button>
+
+        </div>
+      )}
+
+      {/* SCROLLABLE TABLE */}
+      {sortedRows.length > 0 && (
+        <div className="bg-white shadow rounded-lg">
+
+          <div className="max-h-125 overflow-y-auto">
+
+            <table className="min-w-full text-center">
+
+              <thead className="bg-gray-800 text-white sticky top-0">
                 <tr>
-                  {[
-                    { key: "id", label: "ID" },
-                    { key: "device", label: "Device" },
-                    { key: "value", label: "Value" },
-                    { key: "time", label: "Timestamp" },
-                  ].map((h) => (
+                  {["id","device","value","time"].map(k=>(
                     <th
-                      key={h.key}
-                      onClick={() => handleSort(h.key)}
-                      className="px-4 py-3 cursor-pointer hover:bg-gray-700"
+                      key={k}
+                      onClick={()=>handleSort(k)}
+                      className="py-3 cursor-pointer"
                     >
-                      {h.label}
+                      {k.toUpperCase()}
                     </th>
                   ))}
                 </tr>
               </thead>
+
               <tbody>
-                {paginatedRows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b hover:bg-gray-100 transition"
-                  >
-                    <td className="px-4 py-2 text-center">{r.id}</td>
-                    <td className="px-4 py-2 text-center">{r.device}</td>
-                    <td className="px-4 py-2 text-center">{r.value}</td>
-                    <td className="px-4 py-2 text-center">{r.time}</td>
+                {sortedRows.map(r=>(
+                  <tr key={r.id} className="border-b hover:bg-gray-100">
+                    <td>{r.id}</td>
+                    <td>{r.device}</td>
+                    <td>{r.value}</td>
+                    <td>{r.time}</td>
                   </tr>
                 ))}
               </tbody>
+
             </table>
+
           </div>
 
-          {/* PAGINATION */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-4 gap-2">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setCurrentPage(p)}
-                  className={`px-3 py-1 rounded font-semibold ${
-                    p === currentPage
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 hover:bg-gray-300"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+        </div>
       )}
 
-      {!loading && rows.length === 0 && (
-        <p className="text-center text-gray-500 mt-10">
-          Select a date range and search.
-        </p>
-      )}
     </div>
   );
 }

@@ -1,608 +1,518 @@
-// import { useEffect, useState } from "react";
-// import { io } from "socket.io-client";
-// import {
-//   LineChart,
-//   Line,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   ResponsiveContainer,
-//   Legend,
-// } from "recharts";
-// import RoundTank from "../components/RoundTank";
-
-// /* ================= SOCKET ================= */
-// const socket = io("http://10.10.1.200:5000");
-// const API_BASE = "http://10.10.1.200:3000";
-
-// /* ================= PRESSURE GAUGE ================= */
-// function PressureGauge({
-//   value = 0,
-//   min = 0,
-//   max = 50,
-//   unit = "Pa",
-//   size = 260,
-//   label = "Pressure",
-// }) {
-//   const safeValue = Math.min(Math.max(value, min), max);
-//   const range = max - min || 1;
-
-//   const cx = size / 2;
-//   const cy = size / 2;
-//   const arcThickness = 12;
-//   const arcGap = 70;
-//   const radius = (size - arcThickness - arcGap) / 2;
-
-//   const tickMajor = 20;
-//   const tickMinor = 12;
-//   const tickMicro = 6;
-//   const tickOuterRadius = radius - arcThickness / 2;
-//   const labelRadius = tickOuterRadius - 28;
-
-//   const startAngle = 135;
-//   const endAngle = 405;
-//   const angleRange = endAngle - startAngle;
-
-//   const needleAngle =
-//     startAngle + 90 + angleRange * ((safeValue - min) / range);
-
-//   const toRad = (deg) => (deg * Math.PI) / 180;
-
-//   const arcPath = (a1, a2, r) => {
-//     const s = toRad(a1);
-//     const e = toRad(a2);
-//     const x1 = cx + r * Math.cos(s);
-//     const y1 = cy + r * Math.sin(s);
-//     const x2 = cx + r * Math.cos(e);
-//     const y2 = cy + r * Math.sin(e);
-//     const large = a2 - a1 > 180 ? 1 : 0;
-//     return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
-//   };
-
-//   const zones = [
-//     { start: 0, end: 5, color: "#d92647" },
-//     { start: 5, end: 10, color: "#e08048" },
-//     { start: 10, end: 15, color: "#d6d926" },
-//     { start: 15, end: 25, color: "#38c749" },
-//     { start: 25, end: 35, color: "#e08048" },
-//     { start: 35, end: 50, color: "#d92647" },
-//   ];
-
-//   return (
-//     <div className="flex flex-col items-center">
-//       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-//         <defs>
-//           <linearGradient
-//             id={`metal-${label}`}
-//             x1="0%"
-//             y1="0%"
-//             x2="0%"
-//             y2="100%"
-//           >
-//             <stop offset="0%" stopColor="#1e293b" />
-//             <stop offset="50%" stopColor="#64748b" />
-//             <stop offset="100%" stopColor="#334155" />
-//           </linearGradient>
-//           <linearGradient
-//             id={`needle-${label}`}
-//             x1="0%"
-//             y1="0%"
-//             x2="100%"
-//             y2="0%"
-//           >
-//             <stop offset="0%" stopColor="#dc2626" />
-//             <stop offset="100%" stopColor="#991b1b" />
-//           </linearGradient>
-//           <filter id={`glow-${label}`}>
-//             <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-//             <feMerge>
-//               <feMergeNode in="coloredBlur" />
-//               <feMergeNode in="SourceGraphic" />
-//             </feMerge>
-//           </filter>
-//         </defs>
-
-//         <circle
-//           cx={cx}
-//           cy={cy}
-//           r={radius + 30}
-//           fill="none"
-//           stroke={`url(#metal-${label})`}
-//           strokeWidth={12}
-//         />
-//         <circle
-//           cx={cx}
-//           cy={cy}
-//           r={radius + 20}
-//           fill="none"
-//           stroke="#94a3b8"
-//           strokeWidth={2}
-//           opacity="0.9"
-//         />
-//         <circle cx={cx} cy={cy} r={radius + 10} fill="#f8fafc" />
-
-//         {zones.map((z, i) => {
-//           const a1 = startAngle + angleRange * (z.start / max);
-//           const a2 = startAngle + angleRange * (z.end / max);
-//           return (
-//             <path
-//               key={i}
-//               d={arcPath(a1, a2, radius)}
-//               stroke={z.color}
-//               strokeWidth={arcThickness}
-//               strokeLinecap="round"
-//               fill="none"
-//               opacity="0.9"
-//             />
-//           );
-//         })}
-
-//         {Array.from({ length: 51 }).map((_, i) => {
-//           const valueAtTick = min + (range * i) / 50;
-//           const pct = (valueAtTick - min) / range;
-//           const ang = startAngle + angleRange * pct;
-//           const rad = toRad(ang);
-
-//           const isMajor = i % 5 === 0;
-//           const inner =
-//             radius - arcThickness / 2 - (isMajor ? tickMajor : tickMinor);
-
-//           return (
-//             <g key={i}>
-//               <line
-//                 x1={cx + inner * Math.cos(rad)}
-//                 y1={cy + inner * Math.sin(rad)}
-//                 x2={cx + tickOuterRadius * Math.cos(rad)}
-//                 y2={cy + tickOuterRadius * Math.sin(rad)}
-//                 stroke="#475569"
-//                 strokeWidth={isMajor ? 2.5 : 1.5}
-//               />
-//               {isMajor && (
-//                 <text
-//                   x={cx + labelRadius * Math.cos(rad)}
-//                   y={cy + labelRadius * Math.sin(rad)}
-//                   fontSize="11"
-//                   fontWeight="600"
-//                   fill="#1e293b"
-//                   textAnchor="middle"
-//                   dominantBaseline="middle"
-//                 >
-//                   {Math.round(valueAtTick)}
-//                 </text>
-//               )}
-//             </g>
-//           );
-//         })}
-
-//         <text
-//           x={cx}
-//           y={cy - 40}
-//           fontSize="14"
-//           fontWeight="700"
-//           textAnchor="middle"
-//           fill="#475569"
-//         >
-//           {unit}
-//         </text>
-
-//         <g
-//           transform={`rotate(${needleAngle} ${cx} ${cy})`}
-//           filter={`url(#glow-${label})`}
-//         >
-//           <polygon
-//             points={`${cx},${cy} ${cx - 6},${cy + 8} ${cx + 6},${
-//               cy + 8
-//             } ${cx},${cy - tickOuterRadius + 5}`}
-//             fill={`url(#needle-${label})`}
-//           />
-//         </g>
-
-//         <circle cx={cx} cy={cy} r={10} fill={`url(#metal-${label})`} />
-//         <circle cx={cx} cy={cy} r={5} fill="#dc2626" />
-
-//         <rect
-//           x={cx - 40}
-//           y={cy + 48}
-//           width={78}
-//           height={32}
-//           rx={8}
-//           fill="#1e293b"
-//         />
-//         <text
-//           x={cx}
-//           y={cy + 70}
-//           fontSize="18"
-//           fontWeight="700"
-//           textAnchor="middle"
-//           fill="#f1f5f9"
-//         >
-//           {safeValue.toFixed(1)}
-//         </text>
-//       </svg>
-//       <div className="mt-2 text-base font-semibold text-slate-700">{label}</div>
-//     </div>
-//   );
-// }
-
-
-// function StatCard({ title, value, unit, icon, trend }) {
-//   return (
-//     <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-shadow">
-//       <div className="flex items-center justify-between mb-3">
-//         <span className="text-3xl">{icon}</span>
-//         {trend && (
-//           <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-//             trend > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-//           }`}>
-//             {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
-//           </span>
-//         )}
-//       </div>
-//       <div className="text-sm font-medium text-slate-600 mb-1">{title}</div>
-//       <div className="flex items-baseline gap-2">
-//         <span className="text-3xl font-bold text-slate-900">{value}</span>
-//         <span className="text-lg font-semibold text-slate-500">{unit}</span>
-//       </div>
-//     </div>
-//   );
-// }
-// export default function ProfessionalDashboard() {
-//   // const [history, setHistory] = useState([]);
-//   // const [tankLevel, setTankLevel] = useState(0);
-
-//   // const [pressure, setPressure] = useState({
-//   //   production_clean_room: 0,
-//   //   assembly_clean_room: 0,
-//   // });
-
-//   // const [data, setData] = useState({
-//   //   pv: 0,
-//   //   sv: 0,
-//   //   output: 0,
-//   //   status: "disconnected",
-//   // });
-
-//   // useEffect(() => {
-//   // let isMounted = true;
-//  const [values, setValues] = useState({
-//     production_clean_room: 0,
-//     assembly_clean_room: 0,
-//   });
-
-//   useEffect(() => {
-//     // ✅ connect to Socket.IO server (NOT REST endpoint)
-//     const socket = io("http://localhost:3000", {
-//       transports: ["websocket"],
-//     });
-
-//     socket.on("connect", () => {
-//       console.log("✅ Socket connected:", socket.id);
-//     });
-
-//     socket.on("modbus_update", (data) => {
-//       /*
-//         data = {
-//           device: "production_clean_room",
-//           value: 23.6,
-//           timestamp: "2026-01-09 12:10:00"
-//         }
-//       */
-//       setValues((prev) => ({
-//         ...prev,
-//         [data.device]: data.value,
-//       }));
-//     });
-
-//     socket.on("disconnect", () => {
-//       console.log(" Socket disconnected");
-//     });
-
-//     return () => socket.disconnect();
-//   }, []);
-
-
-//   const fetchData = async () => {
-//     try {
-//       const res = await fetch(`${API_BASE}/fy600`);
-//       if (!res.ok) throw new Error("API not reachable");
-
-//       const json = await res.json();
-//       console.log(json);
-
-//       if (!isMounted) return;
-
-//       setData({
-//         pv: json.pv ?? 0,
-//         sv: json.sv ?? 0,
-//         output: json.output ?? 0,
-//         status: json.status ?? "disconnected",
-//       });
-
-//       // ✅ FIX: update tank level from API
-//       setTankLevel(Number(json.pv) || 0);
-
-//     } catch (err) {
-//       console.error("API error:", err);
-//       if (!isMounted) return;
-
-//       setData((prev) => ({
-//         ...prev,
-//         status: "disconnected",
-//       }));
-//     }
-//   };
-
-//   fetchData();
-//   const timer = setInterval(fetchData, 2000);
-
-//   return () => {
-//     isMounted = false;
-//     clearInterval(timer);
-//   };
-// }, []);
-
-
-//   useEffect(() => {
-//     socket.on("modbus_update", (data) => {
-//       if (data.device === "production_clean_room") {
-//         setPressure((p) => ({
-//           ...p,
-//           production_clean_room: data.value,
-//         }));
-//       }
-
-//       if (data.device === "assembly_clean_room") {
-//         setPressure((p) => ({
-//           ...p,
-//           assembly_clean_room: data.value,
-//         }));
-//       }
-
-      
-
-//       setHistory((prev) => [
-//         ...prev.slice(-29),
-//         {
-//           time: new Date().toLocaleTimeString(),
-//           production:
-//             data.device === "production_clean_room"
-//               ? data.value
-//               : pressure.production_clean_room,
-//           assembly:
-//             data.device === "assembly_clean_room"
-//               ? data.value
-//               : pressure.assembly_clean_room,
-//         },
-//       ]);
-//     });
-
-//     return () => socket.off("modbus_update");
-//   }, []);
-
-//   return (
-//     <div className="min-h-screen bg-linear-to-br from-slate-50 via-slate-100 to-blue-50 p-10 space-y-12">
-      
-//       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-         
-//           <StatCard title="Production Room Pressure" value={pressure.production_clean_room} unit="Pa" icon="⬇️" trend={0.2} />
-//           <StatCard title="Assembly Room Pressure" value={pressure.assembly_clean_room} unit="Pa" icon="⬇️" trend={0.8} />
-//           <StatCard title="Main Tank Level" value={data.pv} unit="cm" icon="🌊" trend={-1.2} />
-
-//       </div>
-//       <div className="flex gap-10 justify-between flex-wrap">
-//         <div className="ml-10">
-//           <PressureGauge
-//           value={pressure.production_clean_room}
-//           label="Production Clean Room"
-//         />
-
-//         </div>
-        
-
-//         <PressureGauge
-//           value={pressure.assembly_clean_room}
-//           label="Assembly Clean Room"
-//         />
-
-//           <div className="mr-10">
-//             <RoundTank levelCm={Number(data.pv)} maxHeightCm={250} label="Tube Well Tank" />
-//           </div>
-          
-//       </div>
-
-
-//       <div className="bg-white rounded-2xl shadow-2xl p-6 border border-slate-200">
-//         <h2 className="text-xl font-bold text-slate-800 mb-4">
-//           Pressure Trends
-//         </h2>
-
-//         <ResponsiveContainer width="100%" height={300}>
-//           <LineChart data={history}>
-//             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-//             <XAxis dataKey="time" />
-//             <YAxis domain={[0, 50]} />
-//             <Tooltip />
-//             <Legend />
-//             <Line
-//               type="monotone"
-//               dataKey="production"
-//               stroke="#2563eb"
-//               strokeWidth={2.5}
-//               dot={false}
-//             />
-//             <Line
-//               type="monotone"
-//               dataKey="assembly"
-//               stroke="#16a34a"
-//               strokeWidth={2.5}
-//               dot={false}
-//             />
-//           </LineChart>
-//         </ResponsiveContainer>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-import { useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
+import { Link, useLocation } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-import RoundTank from "../components/RoundTank";
-import PressureGauge from "../components/PressureGauge";
+  FaHome,
+  FaCog,
+  FaTachometerAlt,
+  FaSignOutAlt,
+  FaBell,
+  FaUserCircle,
+  FaTimes,
+  FaDatabase,
+  FaChartLine,
+  FaHistory,
+  FaWater,
+  FaTemperatureHigh,
+  FaCloud,
+  FaCheckCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
+import { MdWaterDrop, MdSpeed, MdTrendingUp } from "react-icons/md";
 
-const SOCKET_URL = "http://localhost:3000";
+export default function HomePage() {
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "Pressure gauge alert: Gauge-03 exceeded threshold", time: "2 min ago", read: false },
+    { id: 2, message: "Water level critical in Tank B", time: "15 min ago", read: false },
+    { id: 3, message: "System maintenance scheduled", time: "1 hour ago", read: true },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const touchStartX = useRef(null);
+  const notificationRef = useRef(null);
+  const profileRef = useRef(null);
+  const location = useLocation();
 
+  const hasUnreadNotifications = notifications.some(n => !n.read);
 
-export default function ProfessionalDashboard() {
-
-
-    const [values, setValues] = useState({
-    pv: 0,
-    sv: 0,
-    output: 0,
-    status: "disconnected",
-  });
-
+  /* ---------- CLICK OUTSIDE TO CLOSE ---------- */
   useEffect(() => {
-  const socket = io("http://localhost:3000", {
-    transports: ["websocket"],
-  });
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfile(false);
+      }
+    };
 
-  socket.on("fy600_update", (data) => {
-    setValues({
-      pv: Number(data.pv) || 0,
-      sv: Number(data.sv) || 0,
-      output: Number(data.output) || 0,
-      status: data.status || "connected",
-    });
-  });
-
-  return () => socket.disconnect();
-}, []);
-
-  /* ================= STATE ================= */
-  const [pressure, setPressure] = useState({
-    production_clean_room: 0,
-    assembly_clean_room: 0,
-  });
-
-  const [history, setHistory] = useState([]);
-  
-  const socketRef = useRef(null);
-
-  /* ================= SOCKET.IO (REALTIME PRESSURE) ================= */
-  useEffect(() => {
-    socketRef.current = io(SOCKET_URL, {
-      transports: ["websocket"],
-    });
-
-    socketRef.current.on("connect", () => {
-      console.log("✅ Socket connected");
-    });
-
-    socketRef.current.on("modbus_update", (data) => {
-      setPressure((prev) => ({
-        ...prev,
-        [data.device]: data.value,
-      }));
-
-      setHistory((prev) =>
-        [
-          ...prev.slice(-29),
-          {
-            time: new Date().toLocaleTimeString(),
-            production:
-              data.device === "production_clean_room"
-                ? data.value
-                : prev.at(-1)?.production ?? 0,
-            assembly:
-              data.device === "assembly_clean_room"
-                ? data.value
-                : prev.at(-1)?.assembly ?? 0,
-          },
-        ]
-      );
-    });
-
-    socketRef.current.on("disconnect", () => {
-      console.log(" Socket disconnected");
-    });
-
-    return () => socketRef.current.disconnect();
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
- 
+  /* ---------- PREVENT BODY SCROLL WHEN SIDEBAR OPEN ---------- */
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [open]);
 
-    
+  /* ---------- SWIPE CLOSE ---------- */
+  const onTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
 
-  /* ================= UI ================= */
+  const onTouchEnd = (e) => {
+    if (!touchStartX.current) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (diff > 60) setOpen(false);
+    touchStartX.current = null;
+  };
+
+  /* ---------- CLOSE SIDEBAR ON ESC ---------- */
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  const markAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const clearNotification = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const links = [
+    { to: "/", label: "Home", icon: <FaHome /> },
+    { to: "/water", label: "Water Level", icon: <MdWaterDrop /> },
+    { to: "/pressur", label: "Pressure Gauges", icon: <FaTachometerAlt /> },
+    { to: "/chart", label: "Chart", icon: <FaChartLine /> },
+    { to: "/database", label: "Database", icon: <FaDatabase /> },
+    { to: "/history", label: "History Chart", icon: <FaHistory /> },
+    { to: "/settings", label: "Settings", icon: <FaCog /> },
+    { to: "/logout", label: "Logout", icon: <FaSignOutAlt /> },
+  ];
+
+  const isActive = (path) => location.pathname === path;
+
+  // System stats for the dashboard
+  const systemStats = [
+    { 
+      icon: <MdWaterDrop className="text-4xl" />, 
+      title: "Water Level", 
+      value: "82%", 
+      status: "Normal",
+      statusColor: "text-green-500",
+      bgColor: "from-blue-500 to-blue-600"
+    },
+    { 
+      icon: <FaTachometerAlt className="text-4xl" />, 
+      title: "Pressure", 
+      value: "125 PSI", 
+      status: "Alert",
+      statusColor: "text-yellow-500",
+      bgColor: "from-orange-500 to-orange-600"
+    },
+    { 
+      icon: <FaTemperatureHigh className="text-4xl" />, 
+      title: "Temperature", 
+      value: "28°C", 
+      status: "Normal",
+      statusColor: "text-green-500",
+      bgColor: "from-red-500 to-red-600"
+    },
+    { 
+      icon: <MdSpeed className="text-4xl" />, 
+      title: "Flow Rate", 
+      value: "45 L/min", 
+      status: "Normal",
+      statusColor: "text-green-500",
+      bgColor: "from-purple-500 to-purple-600"
+    },
+  ];
+
+  const quickActions = [
+    { to: "/water", label: "Monitor Water", icon: <FaWater />, color: "bg-blue-600 hover:bg-blue-700" },
+    { to: "/pressur", label: "Check Pressure", icon: <FaTachometerAlt />, color: "bg-orange-600 hover:bg-orange-700" },
+    { to: "/chart", label: "View Analytics", icon: <FaChartLine />, color: "bg-green-600 hover:bg-green-700" },
+    { to: "/database", label: "Database", icon: <FaDatabase />, color: "bg-purple-600 hover:bg-purple-700" },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-100 p-10 space-y-12">
+    <div className="min-h-screen bg-gray-100">
+      {/* ================= HEADER ================= */}
+      <header className="w-full px-4 sm:px-6 sticky top-0 py-3 sm:py-4 bg-linear-to-r from-blue-600 to-blue-800 shadow-lg flex items-center justify-between z-40">
+        {/* LEFT: LOGO + DESKTOP MENU BUTTON */}
+        <div className="flex items-center gap-2 sm:gap-3 text-white font-bold">
+          <button
+            className="hidden lg:flex text-2xl xl:text-3xl mr-2 hover:bg-blue-700 rounded p-2 transition-colors"
+            onClick={() => setOpen(true)}
+            aria-label="Open sidebar"
+          >
+            ☰
+          </button>
 
-      {/* ===== STAT CARDS ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <StatCard title="Production Pressure" value={pressure.production_clean_room} unit="Pa" />
-        <StatCard title="Assembly Pressure" value={pressure.assembly_clean_room} unit="Pa" />
-        <StatCard title="Tank Level" value={values.pv} unit="cm" />
-      </div>
-
-      {/* ===== GAUGES ===== */}
-      <div className="flex flex-wrap justify-between gap-10">
-        
-        <div className=" text-xl text-center" >
-          <PressureGauge value={pressure.production_clean_room} label="Production Clean Room" />
-          <h1>Productin Clean Room</h1>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center">
+            <FaCloud className="text-blue-600 text-xl" />
+          </div>
+          <h1 className="text-xs sm:text-sm md:text-base lg:text-xl xl:text-2xl font-bold">
+            Flexicare Environmental Monitoring System
+          </h1>
         </div>
-        
-        <div className=" text-xl text-center" >
-          <PressureGauge value={pressure.assembly_clean_room} label="Assembly Clean Room" />
-          <h1>Assembly Clean Room</h1>
+
+        {/* RIGHT ICONS (DESKTOP) */}
+        <div className="hidden lg:flex items-center gap-4 xl:gap-6 text-white">
+          {/* Notifications Dropdown */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              className="relative hover:bg-blue-700 p-2 rounded-full transition-colors"
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowProfile(false);
+              }}
+              aria-label="Notifications"
+            >
+              <FaBell className="text-xl" />
+              {hasUnreadNotifications && (
+                <span className="absolute top-1 right-1 w-3 h-3 bg-red-600 rounded-full animate-pulse border-2 border-blue-800" />
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl overflow-hidden z-50">
+                <div className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
+                  <h3 className="font-bold">Notifications</h3>
+                  {hasUnreadNotifications && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      No notifications
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
+                          !notif.read ? "bg-blue-50" : ""
+                        }`}
+                        onClick={() => markAsRead(notif.id)}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className={`text-sm ${!notif.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
+                              {notif.message}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearNotification(notif.id);
+                            }}
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            aria-label="Clear notification"
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Dropdown */}
+          <div className="relative" ref={profileRef}>
+            <button
+              className="hover:bg-blue-700 p-2 rounded-full transition-colors"
+              onClick={() => {
+                setShowProfile(!showProfile);
+                setShowNotifications(false);
+              }}
+              aria-label="Profile menu"
+            >
+              <FaUserCircle className="text-2xl" />
+            </button>
+
+            {showProfile && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-2xl overflow-hidden z-50">
+                <div className="p-4 bg-linear-to-rrom-blue-600 to-blue-800 text-white">
+                  <div className="flex items-center gap-3">
+                    <FaUserCircle className="text-4xl" />
+                    <div>
+                      <div className="font-bold">Sameera Kelum</div>
+                      <div className="text-sm opacity-90">Engineering Team</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2">
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded transition-colors text-gray-700"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <FaCog />
+                    <span>Settings</span>
+                  </Link>
+                  <Link
+                    to="/logout"
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded transition-colors text-red-600"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <FaSignOutAlt />
+                    <span>Logout</span>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <RoundTank levelCm={Number(values.pv)} maxHeightCm={250} label="Tube Well Tank" />
-      </div>
 
-      {/* ===== CHART ===== */}
-      <div className="bg-white rounded-xl shadow-xl p-6">
-        <h2 className="text-xl font-bold mb-4">Pressure Trends</h2>
+        {/* HAMBURGER (MOBILE) */}
+        <button
+          className="lg:hidden text-white text-2xl sm:text-3xl hover:bg-blue-700 rounded p-2 transition-colors"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+      </header>
 
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={history}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis domain={[0, 50]} />
-            <Tooltip />
-            <Legend />
-            <Line dataKey="production" stroke="#2563eb" dot={false} />
-            <Line dataKey="assembly" stroke="#16a34a" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {/* ================= OVERLAY ================= */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* ================= SIDEBAR ================= */}
+      <aside
+        className={`fixed top-0 left-0 h-full w-72 sm:w-80 bg-linear-to-b from-blue-700 to-blue-900 z-50
+        transform transition-transform duration-300 ease-in-out
+        ${open ? "translate-x-0" : "-translate-x-full"}
+        shadow-2xl`}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* CLOSE BUTTON */}
+        <button
+          className="absolute top-4 right-4 text-white text-2xl hover:bg-blue-800 rounded-full p-2 transition-colors"
+          onClick={() => setOpen(false)}
+          aria-label="Close sidebar"
+        >
+          <FaTimes />
+        </button>
+
+        {/* PROFILE */}
+        <div className="flex items-center gap-4 p-6 border-b border-white/20">
+          <FaUserCircle className="text-5xl text-white" />
+          <div className="text-white flex-1">
+            <div className="font-bold text-lg">Sameera Kelum</div>
+            <div className="text-sm opacity-90">Engineering Team</div>
+            <div className="text-xs opacity-75 mt-1">Flexicare-Lanka</div>
+          </div>
+
+          <div className="relative">
+            <FaBell className="text-xl text-white" />
+            {hasUnreadNotifications && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full animate-pulse border-2 border-blue-900" />
+            )}
+          </div>
+        </div>
+
+        {/* MENU */}
+        <nav className="flex flex-col p-4 gap-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
+          {links.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-4 px-4 py-3 rounded-lg font-semibold
+              transition-all duration-200 hover:translate-x-1
+              ${
+                isActive(item.to)
+                  ? "bg-white text-blue-700 shadow-md"
+                  : "text-white hover:bg-blue-600"
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* FOOTER INFO */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20 bg-blue-900/50">
+          <p className="text-xs text-white/80 text-center">
+            © 2025 Flexicare-Lanka
+          </p>
+        </div>
+      </aside>
+
+      {/* ================= MAIN CONTENT - HOMEPAGE ================= */}
+      <main className="relative">
+        {/* Hero Section with Background Image */}
+        <div 
+          className="relative h-125 bg-cover bg-center bg-no-repeat flex items-center justify-center"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1920&q=80')`
+          }}
+        >
+          <div className="text-center text-white px-4 z-10">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 animate-fade-in">
+              Welcome to FEMS
+            </h2>
+            <p className="text-lg md:text-xl lg:text-2xl mb-8 max-w-3xl mx-auto">
+              Real-time Environmental Monitoring & Control System
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Link 
+                to="/water" 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
+              >
+                Start Monitoring
+              </Link>
+              <Link 
+                to="/chart" 
+                className="bg-white hover:bg-gray-100 text-blue-600 px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
+              >
+                View Analytics
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* System Status Cards */}
+        <div className="container mx-auto px-4 py-12">
+          <h3 className="text-3xl font-bold text-gray-800 mb-8 text-center">System Overview</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {systemStats.map((stat, index) => (
+              <div 
+                key={index} 
+                className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300"
+              >
+                <div className={`bg-linear-to-r ${stat.bgColor} p-6 text-white`}>
+                  <div className="flex justify-between items-start">
+                    {stat.icon}
+                    <span className={`${stat.statusColor} bg-white px-3 py-1 rounded-full text-xs font-semibold`}>
+                      {stat.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h4 className="text-gray-600 text-sm font-semibold mb-2">{stat.title}</h4>
+                  <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-12">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Quick Actions</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {quickActions.map((action, index) => (
+                <Link
+                  key={index}
+                  to={action.to}
+                  className={`${action.color} text-white p-6 rounded-lg flex flex-col items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-md`}
+                >
+                  <div className="text-4xl">{action.icon}</div>
+                  <span className="font-semibold">{action.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Alerts */}
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Recent Alerts</h3>
+              <Link to="/history" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+                View All
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {notifications.slice(0, 3).map((notif) => (
+                <div 
+                  key={notif.id} 
+                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className={`mt-1 ${notif.read ? 'text-gray-400' : 'text-yellow-500'}`}>
+                    {notif.read ? <FaCheckCircle className="text-xl" /> : <FaExclamationTriangle className="text-xl" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`${notif.read ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>
+                      {notif.message}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">{notif.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* System Status Summary */}
+          <div className="mt-12 bg-linear-to-r from-blue-600 to-blue-800 rounded-xl shadow-lg p-8 text-white">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div>
+                <h3 className="text-2xl font-bold mb-2">System Status: Operational</h3>
+                <p className="text-blue-100">All systems functioning normally. Last updated: 2 minutes ago</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold">99.8%</div>
+                  <div className="text-sm text-blue-100">Uptime</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold">4</div>
+                  <div className="text-sm text-blue-100">Active Sensors</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold">
+                    <MdTrendingUp className="inline" />
+                  </div>
+                  <div className="text-sm text-blue-100">Performance</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-800 text-white py-8 mt-12">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm">© 2025 Flexicare-Lanka. All rights reserved.</p>
+          <p className="text-xs text-gray-400 mt-2">Flexicare Environmental Monitoring System v2.0</p>
+        </div>
+      </footer>
     </div>
   );
 }
-
-/* ================= SMALL COMPONENT ================= */
-function StatCard({ title, value, unit }) {
-  return (
-    <div className="bg-white rounded-xl p-6 shadow">
-      <div className="text-sm text-gray-500">{title}</div>
-      <div className="text-3xl font-bold">
-        {value} <span className="text-base">{unit}</span>
-      </div>
-    </div>
-  );
-}
-
-
-

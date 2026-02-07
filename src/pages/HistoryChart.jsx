@@ -35,6 +35,16 @@ export default function HistoryChart() {
   };
 
   const validateRange = () => {
+    if (
+      !filters.start_date ||
+      !filters.start_time ||
+      !filters.end_date ||
+      !filters.end_time
+    ) {
+      setError("Select all date & time fields");
+      return false;
+    }
+
     const start = new Date(`${filters.start_date}T${filters.start_time}`);
     const end = new Date(`${filters.end_date}T${filters.end_time}`);
 
@@ -42,6 +52,7 @@ export default function HistoryChart() {
       setError("End time must be after start time");
       return false;
     }
+
     return true;
   };
 
@@ -57,8 +68,9 @@ export default function HistoryChart() {
       const start = `${filters.start_date} ${filters.start_time}:00`;
       const end = `${filters.end_date} ${filters.end_time}:00`;
 
+      // ✅ USE VITE PROXY
       const res = await fetch(
-        `http://localhost:3000/modbus/database/filter?start=${start}&end=${end}`
+        `/api/modbus/database/filter?start=${start}&end=${end}`
       );
 
       if (!res.ok) throw new Error("Failed to load history data");
@@ -66,7 +78,8 @@ export default function HistoryChart() {
       const data = await res.json();
       setRows(data);
     } catch (err) {
-      setError(err.message);
+      setError("Failed to fetch data");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -79,6 +92,8 @@ export default function HistoryChart() {
     let colorIndex = 0;
 
     rows.forEach((r) => {
+      if (!r.device || r.value == null || !r.time) return;
+
       if (!map[r.device]) {
         map[r.device] = {
           label: r.device,
@@ -92,8 +107,11 @@ export default function HistoryChart() {
         colorIndex++;
       }
 
+      // 🔥 Convert backend time → JS Date
+      const fixedTime = new Date(r.time.replace(" ", "T"));
+
       map[r.device].data.push({
-        x: r.time,
+        x: fixedTime,
         y: r.value,
       });
     });
@@ -106,7 +124,9 @@ export default function HistoryChart() {
   useEffect(() => {
     if (!canvasRef.current || chartData.length === 0) return;
 
-    if (chartRef.current) chartRef.current.destroy();
+    if (chartRef.current) {
+      chartRef.current.destroy();
+    }
 
     chartRef.current = new Chart(canvasRef.current, {
       type: "line",
@@ -114,9 +134,17 @@ export default function HistoryChart() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          mode: "nearest",
+          intersect: false,
+        },
         scales: {
           x: {
             type: "time",
+            time: {
+              parser: "yyyy-MM-dd HH:mm:ss",
+              tooltipFormat: "yyyy-MM-dd HH:mm:ss",
+            },
             title: { display: true, text: "Time" },
           },
           y: {
@@ -144,6 +172,7 @@ export default function HistoryChart() {
 
   const exportCSV = () => {
     let csv = "Device,Timestamp,Value\n";
+
     rows.forEach((r) => {
       csv += `${r.device},${r.time},${r.value}\n`;
     });
@@ -161,7 +190,7 @@ export default function HistoryChart() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
+      <h2 className="text-2xl font-bold text-center mb-6">
         📊 Pressure History Chart
       </h2>
 
@@ -175,7 +204,7 @@ export default function HistoryChart() {
             { name: "end_time", type: "time", label: "End Time" },
           ].map((f) => (
             <div key={f.name}>
-              <label className="text-sm font-semibold text-gray-600">
+              <label className="text-sm font-semibold">
                 {f.label}
               </label>
               <input
@@ -183,7 +212,7 @@ export default function HistoryChart() {
                 name={f.name}
                 value={filters[f.name]}
                 onChange={handleChange}
-                className="w-full border rounded px-3 py-2 mt-1 focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded px-3 py-2 mt-1"
               />
             </div>
           ))}
@@ -194,7 +223,7 @@ export default function HistoryChart() {
         <button
           onClick={fetchHistory}
           disabled={loading}
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold disabled:opacity-60"
+          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
         >
           {loading ? "Loading..." : "Load History"}
         </button>
@@ -203,20 +232,20 @@ export default function HistoryChart() {
       {/* CHART */}
       {chartData.length > 0 && (
         <>
-          <div className="flex justify-between items-center mb-2">
-            <p className="font-semibold text-gray-700">
-              Devices: {chartData.length}
-            </p>
+          <div className="flex justify-between mb-2">
+            <p>Devices: {chartData.length}</p>
+
             <div className="flex gap-2">
               <button
                 onClick={exportCSV}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                className="bg-green-600 text-white px-4 py-2 rounded"
               >
                 Export CSV
               </button>
+
               <button
                 onClick={() => chartRef.current?.resetZoom()}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+                className="bg-gray-600 text-white px-4 py-2 rounded"
               >
                 Reset Zoom
               </button>

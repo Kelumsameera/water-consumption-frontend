@@ -12,22 +12,39 @@ export default function WaterDashboard() {
   });
 
   useEffect(() => {
-  const socket = io("http://localhost:3000", {
-    transports: ["websocket"],
-  });
-
-  socket.on("fy600_update", (data) => {
-    setValues({
-      pv: Number(data.pv) || 0,
-      sv: Number(data.sv) || 0,
-      output: Number(data.output) || 0,
-      status: data.status || "connected",
+    const socket = io("http://10.10.1.200:3000", {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
     });
-  });
 
-  return () => socket.disconnect();
-}, []);
+    /* ---------- CONNECT ---------- */
+    socket.on("connect", () => {
+      console.log("✅ FY600 Connected");
+      setValues((v) => ({ ...v, status: "connected" }));
+    });
 
+    /* ---------- REALTIME DATA ---------- */
+    socket.on("fy600_update", (data) => {
+      console.log("📡 FY600:", data);
+
+      setValues({
+        pv: Number(data.pv) || 0,
+        sv: Number(data.sv) || 0,
+        output: Number(data.output) || 0,
+        status: data.status || "connected",
+      });
+    });
+
+    /* ---------- DISCONNECT ---------- */
+    socket.on("disconnect", () => {
+      console.log("❌ FY600 Disconnected");
+      setValues((v) => ({ ...v, status: "disconnected" }));
+    });
+
+    return () => socket.disconnect();
+  }, []);
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-linear-to-br from-slate-50 via-blue-50 to-slate-100 p-6 lg:p-12">
@@ -66,10 +83,13 @@ export default function WaterDashboard() {
 
       {/* MAIN */}
       <div className="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+
+        {/* Tank */}
         <div className="relative flex justify-center bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 lg:w-2/5">
           <RoundTank levelCm={values.pv} label="Main Tank" />
         </div>
 
+        {/* Chart Panel */}
         <div className="flex flex-col lg:w-3/5">
           <BarChartPanel
             pv={values.pv}
@@ -77,6 +97,7 @@ export default function WaterDashboard() {
             output={values.output}
           />
         </div>
+
       </div>
     </div>
   );

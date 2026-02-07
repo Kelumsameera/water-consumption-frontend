@@ -103,6 +103,7 @@ export default function Header() {
     { to: "/history", label: "History Chart", icon: <FaHistory /> },
     { to: "/settings", label: "Settings", icon: <FaCog /> },
     { to: "/logout", label: "Logout", icon: <FaSignOutAlt /> },
+    { to: "/waterdb", label: "Water Consumption Database", icon: <FaDatabase /> }
   ];
 
   const isActive = (path) => location.pathname === path;

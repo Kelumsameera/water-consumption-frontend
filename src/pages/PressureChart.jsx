@@ -1,136 +1,226 @@
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
+import zoomPlugin from "chartjs-plugin-zoom";
 import "chartjs-adapter-moment";
 import { io } from "socket.io-client";
 
-const COLORS = [
-  "#2563eb",
-  "#16a34a",
-  "#dc2626",
-  "#ca8a04",
-  "#0891b2",
-];
+Chart.register(zoomPlugin);
 
-export default function PressureChart() {
+const COLORS = ["#2563eb","#16a34a","#dc2626","#ca8a04","#0891b2"];
+
+const MAX_POINTS = 300;          // memory cap
+const WINDOW_MS = 2 * 60 * 1000; // 2-minute sliding window
+
+export default function PressureChartAdvanced() {
+
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
   const datasetsRef = useRef({});
   const colorIndexRef = useRef(0);
 
-  const [legend, setLegend] = useState([]);
+  const [legend,setLegend] = useState([]);
+  const [paused,setPaused] = useState(false);
+  const [autoScale,setAutoScale] = useState(true);
 
   /* ================= INIT CHART ================= */
-  useEffect(() => {
+  useEffect(()=>{
+
     const ctx = canvasRef.current.getContext("2d");
 
-    chartRef.current = new Chart(ctx, {
-      type: "line",
-      data: { datasets: [] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: {
-          x: {
-            type: "time",
-            time: {
-              tooltipFormat: "YYYY-MM-DD HH:mm:ss",
-            },
-            title: { display: true, text: "Time" },
-          },
-          y: {
-            title: { display: true, text: "Pressure (Pa)" },
-          },
+    chartRef.current = new Chart(ctx,{
+      type:"line",
+      data:{datasets:[]},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+
+        parsing:false,
+
+        interaction:{
+          intersect:false,
+          mode:"nearest"
         },
-        plugins: { legend: { display: false } },
-      },
+
+        scales:{
+          x:{
+            type:"time",
+            grid:{color:"#eee"},
+            title:{display:true,text:"Time"}
+          },
+          y:{
+            grid:{color:"#eee"},
+            title:{display:true,text:"Pressure (Pa)"}
+          }
+        },
+
+        plugins:{
+          legend:{display:false},
+
+          tooltip:{
+            backgroundColor:"#111",
+            padding:12
+          },
+
+          /* 🔥 ZOOM + PAN */
+          zoom:{
+            pan:{enabled:true,mode:"x"},
+            zoom:{
+              wheel:{enabled:true},
+              pinch:{enabled:true},
+              mode:"x"
+            }
+          },
+
+          /* 🔥 DECIMATION */
+          decimation:{
+            enabled:true,
+            algorithm:"lttb",
+            samples:100
+          }
+        }
+      }
     });
 
-    return () => chartRef.current?.destroy();
-  }, []);
+    return ()=>chartRef.current?.destroy();
 
-  /* ================= SOCKET.IO ================= */
-  useEffect(() => {
-    const socket = io("http://10.10.1.200:3000", {
-      transports: ["websocket"],
+  },[]);
+
+  /* ================= SOCKET ================= */
+  useEffect(()=>{
+
+    const socket = io("http://10.10.1.200:3000",{
+      transports:["websocket"]
     });
 
-    socket.on("connect", () => {
-      console.log("✅ Realtime socket connected");
-    });
+    socket.on("modbus_update",(data)=>{
 
-    socket.on("modbus_update", (data) => {
+      if(paused) return;
+
       const chart = chartRef.current;
-      if (!chart) return;
+      if(!chart) return;
 
-      // Create dataset if new device
-      if (!datasetsRef.current[data.device]) {
+      /* CREATE DATASET */
+      if(!datasetsRef.current[data.device]){
+
         const color = COLORS[colorIndexRef.current++ % COLORS.length];
 
-        const newDataset = {
-          label: data.device,
-          data: [],
-          borderColor: color,
-          backgroundColor: `${color}33`,
-          tension: 0.25,
-          fill: true,
-          pointRadius: 0,
+        const gradient = canvasRef.current
+          .getContext("2d")
+          .createLinearGradient(0,0,0,400);
+
+        gradient.addColorStop(0,color+"55");
+        gradient.addColorStop(1,color+"00");
+
+        const ds = {
+          label:data.device,
+          data:[],
+          borderColor:color,
+          backgroundColor:gradient,
+          tension:0.35,
+          fill:true,
+          pointRadius:0,
+          borderWidth:2
         };
 
-        datasetsRef.current[data.device] = newDataset;
-        chart.data.datasets.push(newDataset);
+        datasetsRef.current[data.device]=ds;
+        chart.data.datasets.push(ds);
 
-        setLegend((prev) => [
-          ...prev,
-          { name: data.device, color },
-        ]);
+        setLegend(p=>[...p,{name:data.device,color}]);
       }
 
-      // Push new point
       const dataset = datasetsRef.current[data.device];
+
+      const now = Date.now();
+
       dataset.data.push({
-        x: data.time,
-        y: data.value,
+        x: now,
+        y: data.value
       });
 
-      if (dataset.data.length > 100) {
+      /* SLIDING WINDOW */
+      dataset.data = dataset.data.filter(
+        p => now - p.x <= WINDOW_MS
+      );
+
+      /* MEMORY CAP */
+      if(dataset.data.length > MAX_POINTS){
         dataset.data.shift();
+      }
+
+      /* AUTO SCALE */
+      if(autoScale){
+        chart.options.scales.y.min = undefined;
+        chart.options.scales.y.max = undefined;
       }
 
       chart.update("none");
     });
 
-    return () => socket.disconnect();
-  }, []);
+    return ()=>socket.disconnect();
 
+  },[paused,autoScale]);
+
+  /* ================= ACTIONS ================= */
+
+  const exportPNG = ()=>{
+    const url = chartRef.current.toBase64Image();
+    const a = document.createElement("a");
+    a.href=url;
+    a.download="pressure-chart.png";
+    a.click();
+  };
 
   /* ================= UI ================= */
-  return (
-    <div className="w-full mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-center mb-4 text-gray-800">
-        📈 Real-time Pressure Monitoring
-      </h1>
 
-      {/* CUSTOM LEGEND */}
-      <div className="flex flex-wrap justify-center gap-4 mb-3 bg-white shadow p-3 rounded">
-        {legend.map((item) => (
-          <div key={item.name} className="flex items-center gap-2">
-            <span
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <span className="text-sm font-semibold text-gray-700">
-              {item.name}
-            </span>
-          </div>
-        ))}
-      </div>
+  return(
+  <div className="w-full px-4 py-6">
 
-      {/* CHART */}
-      <div className="bg-white rounded-lg shadow border p-2 h-105 overflow-x-auto">
-        <canvas ref={canvasRef} />
-      </div>
+    <h1 className="text-2xl font-bold text-center mb-4">
+      📈 Industrial Pressure Monitor
+    </h1>
+
+    {/* LEGEND */}
+    <div className="flex flex-wrap justify-center gap-4 mb-3 bg-white shadow p-3 rounded">
+      {legend.map(l=>(
+        <div key={l.name} className="flex items-center gap-2">
+          <span className="w-4 h-4 rounded-full" style={{background:l.color}}/>
+          <span className="font-semibold">{l.name}</span>
+        </div>
+      ))}
     </div>
+
+    {/* CONTROLS */}
+    <div className="flex flex-wrap justify-center gap-3 mb-4">
+
+      <button onClick={()=>setPaused(p=>!p)}
+        className="px-4 py-2 bg-yellow-500 text-white rounded">
+        {paused ? "Resume" : "Pause"}
+      </button>
+
+      <button onClick={()=>chartRef.current.resetZoom()}
+        className="px-4 py-2 bg-blue-600 text-white rounded">
+        Reset Zoom
+      </button>
+
+      <button onClick={exportPNG}
+        className="px-4 py-2 bg-green-600 text-white rounded">
+        Export PNG
+      </button>
+
+      <button onClick={()=>setAutoScale(a=>!a)}
+        className="px-4 py-2 bg-purple-600 text-white rounded">
+        AutoScale: {autoScale ? "ON":"OFF"}
+      </button>
+
+    </div>
+
+    {/* CHART */}
+    <div className="bg-white shadow rounded p-3 h-105">
+      <canvas ref={canvasRef}/>
+    </div>
+
+  </div>
   );
 }

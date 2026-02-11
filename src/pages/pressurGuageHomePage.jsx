@@ -3,47 +3,64 @@ import { io } from "socket.io-client";
 import PressureGauge from "../components/PressureGauge";
 
 export default function PressurGuageHomePage() {
+
   const [values, setValues] = useState({
     production_clean_room: 0,
     assembly_clean_room: 0,
   });
 
   useEffect(() => {
-    const socket = io("http://10.10.1.200:3000", {
+
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
+
+    const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,
+      timeout: 5000,
     });
 
+    /* CONNECT */
     socket.on("connect", () => {
       console.log("✅ Socket connected:", socket.id);
     });
 
+    /* ERROR */
     socket.on("connect_error", (err) => {
       console.log("❌ Socket error:", err.message);
     });
 
+    /* DATA */
     socket.on("modbus_update", (data) => {
-      console.log("📡 Modbus update:", data);
 
-      setValues((prev) => ({
+      if (!data?.device) return;
+
+      setValues(prev => ({
         ...prev,
-        [data.device]: Number(data.value),
+        [data.device]: Number(data.value) || 0,
       }));
     });
 
-    socket.on("disconnect", () => {
-      console.log("⚠️ Socket disconnected");
+    /* DISCONNECT */
+    socket.on("disconnect", (reason) => {
+      console.log("⚠️ Socket disconnected:", reason);
     });
 
+    /* CLEANUP */
     return () => {
+      socket.off("connect");
+      socket.off("connect_error");
+      socket.off("modbus_update");
+      socket.off("disconnect");
       socket.disconnect();
     };
+
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 px-6 py-10">
+
       <h1 className="text-center text-gray-700 text-2xl font-bold mb-8">
         Pressure Monitoring Dashboard
       </h1>

@@ -1,38 +1,11 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #ffffff;
-  --color-secondary: #111827;
-  --color-accent: #101827;
-  --color-gold: #e29816;
-  --color-header-bg: #004a98;
-}
-@keyframes wave {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(50%); }
-}
-transition-[height] duration-700 ease-in-out
-
-.animate-wave {
-  animation: wave 4s linear infinite;
-}
-.wave-animation {
-  animation: waveMove 4s linear infinite;
+:root {
+  --font-body: "Open Sans", sans-serif;
 }
 
-
-/* Customize the entire scrollbar */
-::-webkit-scrollbar {
-  width: 8px; /* Set the width of the scrollbar */
-}
-
-/* Customize the scrollbar track (background) */
-::-webkit-scrollbar-track {
-  background-color: transparent; /* Tailwind color equivalent: bg-gray-100 */
-}
-
-/* Customize the scrollbar thumb (draggable part) */
-::-webkit-scrollbar-thumb {
-  background-color: #888; /* Tailwind color equivalent: bg-gray-500 */
-  border-radius: 4px; /* Add rounded corners */
+body {
+  font-family: "Asap", "Open Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
 }

@@ -6,7 +6,7 @@ import WaterDashboard from "./pages/waterDashboardPage";
 import PressureDatabase from "./pages/PressureDatabase";
 import PressureChart from "./pages/PressureChart";
 import HistoryChart from "./pages/HistoryChart";
-import HomePage from "./pages/HomePage";
+import HomePage from "./pages/Homepage";
 import WaterTankDatabase from "./pages/WaterTankDatabase";
 
 import { Route, Routes } from "react-router-dom";

@@ -4,5 +4,6 @@ dist/
 .DS_Store
 .vscode/
 coverage/
-npm-debug.log*      
-package-lock.json
+npm-debug.log*
+.env.*
+!.env.example

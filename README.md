@@ -22,7 +22,7 @@ npm run dev
 
 Vite will print the local URL (usually http://localhost:5173).
 
-The application currently has a committed `.env` with `VITE_API_URL` and `VITE_SOCKET_URL`. These `VITE_*` variables are client-visible public configuration, **not a safe place for secrets**. A separate cleanup change will replace the tracked local file with `.env.example`.
+The previously tracked `.env` was removed and a `.env.example` with `VITE_API_URL` and `VITE_SOCKET_URL` placeholders is available. Copy it to a local `.env` or configure the build environment. `VITE_*` variables are client-visible and must never contain secrets.
 
 ## Scripts
 
